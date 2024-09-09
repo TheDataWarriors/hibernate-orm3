@@ -20,6 +20,7 @@ import org.hibernate.query.sqm.ComparisonOperator;
 import org.hibernate.query.common.FetchClauseType;
 import org.hibernate.query.common.FrameExclusion;
 import org.hibernate.query.common.FrameKind;
+import org.hibernate.query.sqm.sql.internal.SqmPathInterpretation;
 import org.hibernate.sql.ast.Clause;
 import org.hibernate.sql.ast.SqlAstNodeRenderingMode;
 import org.hibernate.sql.ast.spi.SqlSelection;
@@ -54,6 +55,7 @@ import org.hibernate.sql.ast.tree.select.QueryPart;
 import org.hibernate.sql.ast.tree.select.QuerySpec;
 import org.hibernate.sql.ast.tree.select.SelectClause;
 import org.hibernate.sql.ast.tree.select.SortSpecification;
+import org.hibernate.sql.ast.tree.update.Assignable;
 import org.hibernate.sql.ast.tree.update.Assignment;
 import org.hibernate.sql.ast.tree.update.UpdateStatement;
 import org.hibernate.sql.exec.spi.JdbcOperation;
@@ -670,6 +672,13 @@ public class OracleSqlAstTranslator<T extends JdbcOperation> extends SqlAstTrans
 
 	@Override
 	protected void visitSetAssignment(Assignment assignment) {
+		final Assignable assignable = assignment.getAssignable();
+		if ( assignable instanceof SqmPathInterpretation<?> ) {
+			final String affectedTableName = ( (SqmPathInterpretation<?>) assignable ).getAffectedTableName();
+			if ( affectedTableName != null ) {
+				addAffectedTableName( affectedTableName );
+			}
+		}
 		final List<ColumnReference> columnReferences = assignment.getAssignable().getColumnReferences();
 		if ( columnReferences.size() == 1 ) {
 			columnReferences.get( 0 ).appendColumnForWrite( this );
