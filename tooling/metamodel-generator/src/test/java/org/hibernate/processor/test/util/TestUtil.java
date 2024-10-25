@@ -357,7 +357,9 @@ public class TestUtil {
 	}
 
 	private static String getMetaModelClassName(String className) {
-		return className + META_MODEL_CLASS_POSTFIX;
+		final int index = className.lastIndexOf( '.' );
+		final String packageName = className.substring( 0, index + 1 );
+		return packageName + className.substring( packageName.length() ).replace( '$', '_' ) + META_MODEL_CLASS_POSTFIX;
 	}
 
 	public static String getMetaModelSourceAsString(Class<?> clazz) {
