@@ -481,10 +481,17 @@ public class EntityBinder {
 		final ClassDetails classWithIdClass = inheritanceState.getClassWithIdClass( false );
 		if ( classWithIdClass != null ) {
 			final IdClass idClassAnn = classWithIdClass.getDirectAnnotationUsage( IdClass.class );
-			final Class<?> idClassValue = idClassAnn.value();
-			final ClassDetails compositeClass =
-					getMetadataCollector().getSourceModelBuildingContext().getClassDetailsRegistry()
-							.resolveClassDetails( idClassValue.getName() );
+			final ClassDetails compositeClass;
+			if ( idClassAnn == null ) {
+				compositeClass = getMetadataCollector().getSourceModelBuildingContext()
+						.getClassDetailsRegistry()
+						.resolveClassDetails( inheritanceState.getClassDetails().getClassName() + "_$Id" );
+			}
+			else {
+				final Class<?> idClassValue = idClassAnn.value();
+				compositeClass = getMetadataCollector().getSourceModelBuildingContext()
+						.getClassDetailsRegistry().resolveClassDetails( idClassValue.getName() );
+			}
 			final TypeDetails compositeType = new ClassTypeDetailsImpl( compositeClass, TypeDetails.Kind.CLASS );
 			final TypeDetails classWithIdType = new ClassTypeDetailsImpl( classWithIdClass, TypeDetails.Kind.CLASS );
 
