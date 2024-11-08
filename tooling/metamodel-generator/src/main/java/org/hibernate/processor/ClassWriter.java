@@ -6,6 +6,7 @@ package org.hibernate.processor;
 
 import org.hibernate.processor.model.MetaAttribute;
 import org.hibernate.processor.model.Metamodel;
+import org.hibernate.processor.util.Constants;
 
 import javax.annotation.processing.FilerException;
 import javax.lang.model.element.ElementKind;
@@ -19,6 +20,9 @@ import java.io.StringWriter;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+
+import static org.hibernate.processor.util.TypeUtils.hasAnnotation;
+import static org.hibernate.processor.util.TypeUtils.isAnnotationMirrorOfType;
 
 /**
  * Helper class to write the actual metamodel class using the  {@link javax.annotation.processing.Filer} API.
@@ -99,6 +103,8 @@ public final class ClassWriter {
 			printClassDeclaration( entity, pw );
 
 			pw.println();
+
+			generateIdClassIfNeeded( entity, pw );
 
 			final List<MetaAttribute> members = entity.getMembers();
 			for ( MetaAttribute metaMember : members ) {
@@ -228,5 +234,25 @@ public final class ClassWriter {
 				? "jakarta.data.metamodel.StaticMetamodel"
 				: "jakarta.persistence.metamodel.StaticMetamodel";
 		return "@" + entity.importType( annotation ) + "(" + entity.getSimpleName() + ".class)";
+	}
+
+	private static void generateIdClassIfNeeded(Metamodel entity, PrintWriter pw) {
+		if ( hasAnnotation( entity.getElement(), Constants.ID_CLASS ) ) {
+			return;
+		}
+
+		final List<String> idFields = entity.getMembers().stream()
+				.filter( a -> a.inheritedAnnotations().stream()
+						.anyMatch( m -> isAnnotationMirrorOfType( m, Constants.ID ) )
+				)
+				.map( a -> entity.importType( a.getTypeDeclaration() ) + " " + a.getPropertyName() )
+				.toList();
+
+		if ( idFields.size() > 1 ) {
+			pw.print( "public record Id(" );
+			pw.print( String.join( ", ", idFields ) );
+			pw.println( ") {}" );
+			pw.println();
+		}
 	}
 }
