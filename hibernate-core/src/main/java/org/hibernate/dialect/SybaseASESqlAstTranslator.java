@@ -27,6 +27,7 @@ import org.hibernate.sql.ast.tree.expression.CaseSearchedExpression;
 import org.hibernate.sql.ast.tree.expression.CaseSimpleExpression;
 import org.hibernate.sql.ast.tree.expression.ColumnReference;
 import org.hibernate.sql.ast.tree.expression.Expression;
+import org.hibernate.sql.ast.tree.expression.JdbcLiteral;
 import org.hibernate.sql.ast.tree.expression.Literal;
 import org.hibernate.sql.ast.tree.expression.QueryLiteral;
 import org.hibernate.sql.ast.tree.expression.SqlTuple;
@@ -357,8 +358,40 @@ public class SybaseASESqlAstTranslator<T extends JdbcOperation> extends Abstract
 
 	@Override
 	protected void renderComparison(Expression lhs, ComparisonOperator operator, Expression rhs) {
-		// In Sybase ASE, XMLTYPE is not "comparable", so we have to cast the two parts to varchar for this purpose
 		final boolean isLob = isLob( lhs.getExpressionType() );
+		final boolean  isNullComparison =
+				(rhs instanceof JdbcLiteral || rhs instanceof QueryLiteral) && ((Literal)rhs).getLiteralValue() == null ||
+				(lhs instanceof JdbcLiteral || lhs instanceof QueryLiteral) && ((Literal)lhs).getLiteralValue() == null;
+
+		if ( !getDialect().isAnsiNullOn()) {
+			// The ansinull setting only matters if using a parameter or literal and the eq operator according to the docs
+			// http://infocenter.sybase.com/help/index.jsp?topic=/com.sybase.infocenter.dc32300.1570/html/sqlug/sqlug89.htm
+			boolean rhsNotNullPredicate = lhs instanceof Literal || isParameter( lhs );
+			boolean lhsNotNullPredicate = rhs instanceof Literal || isParameter( rhs );
+			if ( rhsNotNullPredicate || lhsNotNullPredicate ) {
+				switch ( operator ) {
+					case EQUAL:
+						lhs.accept( this );
+						appendSql( isLob ? " like " : operator.sqlText() );
+						rhs.accept( this );
+						// Comparisons of null with '=' or '!=' operators should not return any results
+						if ( isNullComparison ) {
+							appendSql( " and 1 = 0 " );
+						}
+						return;
+					case NOT_EQUAL:
+						lhs.accept( this );
+						appendSql( isLob ? " not like " : operator.sqlText() );
+						rhs.accept( this );
+						// Comparisons of null with '=' or '!=' operators should not return any results
+						if ( isNullComparison ) {
+							appendSql( " and 1 = 0 " );
+						}
+						return;
+				}
+			}
+		}
+		// In Sybase ASE, XMLTYPE is not "comparable", so we have to cast the two parts to varchar for this purpose
 		if ( isLob ) {
 			switch ( operator ) {
 				case EQUAL:
@@ -371,108 +404,39 @@ public class SybaseASESqlAstTranslator<T extends JdbcOperation> extends Abstract
 					appendSql( " not like " );
 					rhs.accept( this );
 					return;
+				case DISTINCT_FROM:
+					appendSql( "case when " );
+					lhs.accept( this );
+					appendSql( " like " );
+					rhs.accept( this );
+					appendSql( " or " );
+					lhs.accept( this );
+					appendSql( " is null and " );
+					rhs.accept( this );
+					appendSql( " is null then 0 else 1 end=1" );
+					return;
+				case NOT_DISTINCT_FROM:
+					appendSql( "case when " );
+					lhs.accept( this );
+					appendSql( " like " );
+					rhs.accept( this );
+					appendSql( " or " );
+					lhs.accept( this );
+					appendSql( " is null and " );
+					rhs.accept( this );
+					appendSql( " is null then 0 else 1 end=0" );
+					return;
 				default:
 					// Fall through
 					break;
 			}
 		}
 		// I think intersect is only supported in 16.0 SP3
-		if ( getDialect().isAnsiNullOn() ) {
-			if ( isLob ) {
-				switch ( operator ) {
-					case DISTINCT_FROM:
-						appendSql( "case when " );
-						lhs.accept( this );
-						appendSql( " like " );
-						rhs.accept( this );
-						appendSql( " or " );
-						lhs.accept( this );
-						appendSql( " is null and " );
-						rhs.accept( this );
-						appendSql( " is null then 0 else 1 end=1" );
-						return;
-					case NOT_DISTINCT_FROM:
-						appendSql( "case when " );
-						lhs.accept( this );
-						appendSql( " like " );
-						rhs.accept( this );
-						appendSql( " or " );
-						lhs.accept( this );
-						appendSql( " is null and " );
-						rhs.accept( this );
-						appendSql( " is null then 0 else 1 end=0" );
-						return;
-					default:
-						// Fall through
-						break;
-				}
-			}
-			if ( supportsDistinctFromPredicate() ) {
-				renderComparisonEmulateIntersect( lhs, operator, rhs );
-			}
-			else {
-				renderComparisonEmulateCase( lhs, operator, rhs );
-			}
+		if ( supportsDistinctFromPredicate() ) {
+			renderComparisonEmulateIntersect( lhs, operator, rhs );
 		}
 		else {
-			// The ansinull setting only matters if using a parameter or literal and the eq operator according to the docs
-			// http://infocenter.sybase.com/help/index.jsp?topic=/com.sybase.infocenter.dc32300.1570/html/sqlug/sqlug89.htm
-			boolean rhsNotNullPredicate =
-					lhs instanceof Literal
-					|| isParameter( lhs );
-			boolean lhsNotNullPredicate =
-					rhs instanceof Literal
-					|| isParameter( rhs );
-			if ( rhsNotNullPredicate || lhsNotNullPredicate ) {
-				lhs.accept( this );
-				switch ( operator ) {
-					case DISTINCT_FROM:
-						if ( isLob ) {
-							appendSql( " not like " );
-						}
-						else {
-							appendSql( "<>" );
-						}
-						break;
-					case NOT_DISTINCT_FROM:
-						if ( isLob ) {
-							appendSql( " like " );
-						}
-						else {
-							appendSql( '=' );
-						}
-						break;
-					case LESS_THAN:
-					case GREATER_THAN:
-					case LESS_THAN_OR_EQUAL:
-					case GREATER_THAN_OR_EQUAL:
-						// These operators are not affected by ansinull=off
-						lhsNotNullPredicate = false;
-						rhsNotNullPredicate = false;
-					default:
-						appendSql( operator.sqlText() );
-						break;
-				}
-				rhs.accept( this );
-				if ( lhsNotNullPredicate ) {
-					appendSql( " and " );
-					lhs.accept( this );
-					appendSql( " is not null" );
-				}
-				if ( rhsNotNullPredicate ) {
-					appendSql( " and " );
-					rhs.accept( this );
-					appendSql( " is not null" );
-				}
-			}
-			else {
-				if ( supportsDistinctFromPredicate() ) {
-					renderComparisonEmulateIntersect( lhs, operator, rhs );
-				}
-				else {
-					renderComparisonEmulateCase( lhs, operator, rhs );
-				}
-			}
+			renderComparisonEmulateCase( lhs, operator, rhs );
 		}
 	}
 
