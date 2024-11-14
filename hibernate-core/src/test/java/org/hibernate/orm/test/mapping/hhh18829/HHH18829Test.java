@@ -41,7 +41,7 @@ public class HHH18829Test {
 	public void test(SessionFactoryScope sessionFactoryScope)
 			throws ClassNotFoundException, InvocationTargetException, InstantiationException, IllegalAccessException {
 		final var idClass = Class.forName( EmployeeWithoutIdClass.class.getName() + "_$Id" );
-		final var id = idClass.getConstructors()[0].newInstance( 1, "John Doe" );
+		final var id = idClass.getConstructors()[0].newInstance( "John Doe", 1 );
 		final var employees = sessionFactoryScope.fromSession(
 				sess -> sess.createQuery( "from EmployeeWithoutIdClass where id=:id", EmployeeWithoutIdClass.class ).setParameter( "id", id )
 						.getResultList()

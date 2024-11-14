@@ -9,18 +9,9 @@ import jakarta.persistence.Id;
 
 @Entity
 public class AnotherEmployee extends Address {
-	String empName;
-
 	Integer empId;
 
-	@Id
-	public String getEmpName() {
-		return empName;
-	}
-
-	public void setEmpName(String empName) {
-		this.empName = empName;
-	}
+	String empName;
 
 	@Id
 	public Integer getEmpId() {
@@ -29,5 +20,14 @@ public class AnotherEmployee extends Address {
 
 	public void setEmpId(Integer empId) {
 		this.empId = empId;
+	}
+
+	@Id
+	public String getEmpName() {
+		return empName;
+	}
+
+	public void setEmpName(String empName) {
+		this.empName = empName;
 	}
 }
