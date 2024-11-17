@@ -367,7 +367,8 @@ public class HibernateProcessor extends AbstractProcessor {
 		try {
 			if ( !included( element )
 					|| hasAnnotation( element, Constants.EXCLUDE )
-					|| hasPackageAnnotation( element, Constants.EXCLUDE ) ) {
+					|| hasPackageAnnotation( element, Constants.EXCLUDE )
+					|| element.getModifiers().contains( Modifier.PRIVATE ) ) {
 				// skip it completely
 			}
 			else if ( isEntityOrEmbeddable( element ) && !element.getModifiers().contains( Modifier.PRIVATE )) {
