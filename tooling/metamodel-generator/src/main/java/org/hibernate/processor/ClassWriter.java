@@ -5,11 +5,14 @@
 package org.hibernate.processor;
 
 import jakarta.annotation.Nullable;
+import org.hibernate.processor.annotation.AnnotationMetaEntity;
+import org.hibernate.processor.annotation.InnerClassMetaAttribute;
 import org.hibernate.processor.model.MetaAttribute;
 import org.hibernate.processor.model.Metamodel;
 
 import javax.annotation.processing.FilerException;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
@@ -19,7 +22,11 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 
 /**
  * Helper class to write the actual metamodel class using the  {@link javax.annotation.processing.Filer} API.
@@ -33,6 +40,7 @@ public final class ClassWriter {
 	}
 
 	public static void writeFile(Metamodel entity, Context context) {
+		if (entity.hasParent()) throw new IllegalStateException();
 		try {
 			String metaModelPackage = entity.getPackageName();
 			// need to generate the body first, since this will also update
@@ -40,7 +48,7 @@ public final class ClassWriter {
 			String body = generateBody( entity, context ).toString();
 
 			FileObject fo = context.getProcessingEnvironment().getFiler().createSourceFile(
-					getFullyQualifiedClassName( entity, metaModelPackage ),
+					getFullyQualifiedClassName( entity ),
 					entity.getElement()
 			);
 			OutputStream os = fo.openOutputStream();
@@ -103,6 +111,14 @@ public final class ClassWriter {
 
 			final List<MetaAttribute> members = entity.getMembers();
 			for ( MetaAttribute metaMember : members ) {
+				if ( metaMember instanceof InnerClassMetaAttribute innerClass ) {
+					generateBody( innerClass.getMetaEntity(), context )
+							.toString().lines()
+							.forEach(line -> pw.println('\t' + line));
+				}
+			}
+
+			for ( MetaAttribute metaMember : members ) {
 				if ( metaMember.hasStringAttribute() ) {
 					metaMember.getAttributeNameDeclarationString().lines()
 							.forEach(line -> pw.println('\t' + line));
@@ -134,7 +150,18 @@ public final class ClassWriter {
 	}
 
 	private static void printClassDeclaration(Metamodel entity, PrintWriter pw, Context context) {
-		pw.print( "public " );
+		if ( entity.hasParent() ) {
+			final Set<Modifier> modifiers = entity.getElement().getModifiers();
+			if (modifiers.contains( Modifier.PUBLIC )){
+				pw.print( "public " );
+			}else if (modifiers.contains( Modifier.PROTECTED )) {
+				pw.print( "protected " );
+			}
+			pw.print( "static " );
+		}
+		else {
+			pw.print( "public " );
+		}
 		if ( !entity.isImplementation() && !entity.isJakartaDataStyle() ) {
 			pw.print( "abstract " );
 		}
@@ -147,32 +174,51 @@ public final class ClassWriter {
 			if (superClassEntity == null) {
 				superClassEntity = context.getMetaEmbeddable( superClassName );
 			}
-			pw.print( " extends " + getGeneratedSuperclassName(entity, superClassName, superClassEntity ) );
+			final String superclassName = getGeneratedSuperclassName(
+					superClassName, superClassEntity, entity.isJakartaDataStyle() );
+			if (entity.getSimpleName().equals( "OffsetDateTimeTest" )) {
+				System.err.printf( "Extends (?) %s - superClassName is not null%n", superClassName );
+			}
+			pw.print( " extends " + entity.importType(superclassName) );
 		}
 		if ( entity.isImplementation() ) {
 			pw.print( entity.getElement().getKind() == ElementKind.CLASS ? " extends " : " implements " );
 			pw.print( entity.getSimpleName() );
+			if (entity.getSimpleName().equals( "OffsetDateTimeTest" )) {
+				System.err.printf( "Extends (?) %s -- implementation (?!?)%n", entity.getSimpleName() );
+			}
 		}
 
 		pw.println( " {" );
 	}
 
-	private static String getFullyQualifiedClassName(Metamodel entity, String metaModelPackage) {
+	private static String getFullyQualifiedClassName(Metamodel entity) {
+		final String metaModelPackage = entity.getPackageName();
 		String fullyQualifiedClassName = "";
 		if ( !metaModelPackage.isEmpty() ) {
 			fullyQualifiedClassName = fullyQualifiedClassName + metaModelPackage + ".";
 		}
-		fullyQualifiedClassName = fullyQualifiedClassName + getGeneratedClassName( entity );
-		return fullyQualifiedClassName;
+		final String className;
+		if ( entity.getElement().getKind() == ElementKind.PACKAGE ) {
+			className = getGeneratedClassName( entity );
+		}
+		else {
+			className = Arrays.stream(
+							entity.getQualifiedName().substring( fullyQualifiedClassName.length() ).split( "\\." ) )
+					.map( AnnotationMetaEntity::removeDollar )
+					.map( part -> entity.isJakartaDataStyle() ? '_' + part : part + '_' )
+					.collect( Collectors.joining( "." ) );
+		}
+		return fullyQualifiedClassName + className;
 	}
 
 	private static String getGeneratedClassName(Metamodel entity) {
-		final String className = entity.getSimpleName().replace( '.', '_' );
-		return entity.isJakartaDataStyle() ? '_' + className : className + '_';
+		final String className = entity.getSimpleName();
+		return entity.isJakartaDataStyle() ? '_' + className : className + '_';	// TODO : check inner class!!!
 	}
 
-	private static String getGeneratedSuperclassName(Metamodel entity, String superClassName, @Nullable Metamodel superClassEntity) {
-		if ( entity.isJakartaDataStyle() ) {
+	private static String getGeneratedSuperclassName(String superClassName, @Nullable Metamodel superClassEntity, boolean jakartaDataStyle) {
+		if ( jakartaDataStyle ) {
 			int lastDot = superClassName.lastIndexOf('.');
 			if ( lastDot<0 ) {
 				return '_' + superClassName;
@@ -184,7 +230,7 @@ public final class ClassWriter {
 		}
 		else {
 			return superClassEntity == null ? superClassName + '_'
-					: getFullyQualifiedClassName( superClassEntity, superClassEntity.getPackageName() );
+					: getFullyQualifiedClassName( superClassEntity );
 		}
 	}
 
@@ -233,6 +279,7 @@ public final class ClassWriter {
 		final String annotation = entity.isJakartaDataStyle()
 				? "jakarta.data.metamodel.StaticMetamodel"
 				: "jakarta.persistence.metamodel.StaticMetamodel";
-		return "@" + entity.importType( annotation ) + "(" + entity.getSimpleName() + ".class)";
+		final String simpleName = entity.importType( entity.getQualifiedName() );
+		return "@" + entity.importType( annotation ) + "(" + simpleName + ".class)";
 	}
 }

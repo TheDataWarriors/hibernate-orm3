@@ -60,4 +60,8 @@ public interface Metamodel extends ImportContext {
 	List<AnnotationMirror> inheritedAnnotations();
 
 	String javadoc();
+
+	default boolean hasParent() {
+		return false;
+	}
 }

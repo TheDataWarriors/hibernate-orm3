@@ -52,7 +52,6 @@ import javax.tools.Diagnostic;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -111,6 +110,7 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 	private final ImportContext importContext;
 	private final TypeElement element;
 	private final Map<String, MetaAttribute> members;
+	private TypeElement parentElement;
 	private final Context context;
 	private final boolean managed;
 	private boolean jakartaDataRepository;
@@ -164,26 +164,32 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 
 	public AnnotationMetaEntity(
 			TypeElement element, Context context, boolean managed,
-			boolean jakartaDataStaticMetamodel) {
+			boolean jakartaDataStaticMetamodel,
+			@Nullable AnnotationMeta parent) {
 		this.element = element;
 		this.context = context;
 		this.managed = managed;
 		this.members = new HashMap<>();
 		this.quarkusInjection = context.isQuarkusInjection();
-		this.importContext = new ImportContextImpl( getPackageName( context, element ) );
+		this.importContext = parent != null ? parent : new ImportContextImpl( getPackageName( context, element ) );
 		jakartaDataStaticModel = jakartaDataStaticMetamodel;
 	}
 
 	public static AnnotationMetaEntity create(TypeElement element, Context context) {
-		return create( element,context, false, false, false );
+		return create( element,context, false, false, false, null );
 	}
 
 	public static AnnotationMetaEntity create(
 			TypeElement element, Context context,
 			boolean lazilyInitialised, boolean managed,
-			boolean jakartaData) {
+			boolean jakartaData,
+			@Nullable AnnotationMetaEntity parent) {
 		final AnnotationMetaEntity annotationMetaEntity =
-				new AnnotationMetaEntity( element, context, managed, jakartaData );
+				new AnnotationMetaEntity( element, context, managed, jakartaData, parent );
+		if ( parent != null ) {
+			annotationMetaEntity.setParentElement( parent.element );
+			parent.addInnerClass( annotationMetaEntity );
+		}
 		if ( !lazilyInitialised ) {
 			annotationMetaEntity.init();
 		}
@@ -219,24 +225,11 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 
 	@Override
 	public final String getSimpleName() {
-		if ( element.getNestingKind().isNested() ) {
-			final var strings = new ArrayList<String>();
-			for ( TypeElement el = element;; el = (TypeElement) el.getEnclosingElement() ) {
-				strings.add( removeDollar( el.getSimpleName().toString() ) );
-				if ( !el.getNestingKind().isNested() ) {
-					break;
-				}
-			}
-			Collections.reverse( strings );
-			return String.join( ".", strings );
-		}
-		else {
-			return removeDollar( element.getSimpleName().toString() );
-		}
+		return removeDollar( element.getSimpleName().toString() );
 	}
 
 	private String getConstructorName() {
-		return getSimpleName().replace( '.', '_' ) + '_';
+		return getSimpleName() + '_';
 	}
 
 	/**
@@ -245,7 +238,7 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 	 * by convention it will be named with a trailing $ sign. Strip
 	 * that off, so we get the standard constructor.
 	 */
-	private static String removeDollar(String simpleName) {
+	public static String removeDollar(String simpleName) {
 		return simpleName.endsWith("$")
 				? simpleName.substring(0, simpleName.length()-1)
 				: simpleName;
@@ -282,6 +275,19 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 			}
 		}
 		return new ArrayList<>( members.values() );
+	}
+
+	public void addInnerClass(AnnotationMetaEntity metaEntity) {
+		putMember( "INNER_"+ metaEntity.getQualifiedName(), new InnerClassMetaAttribute( metaEntity ) );
+	}
+
+	@Override
+	public boolean hasParent() {
+		return parentElement != null;
+	}
+
+	public void setParentElement(TypeElement parentElement) {
+		this.parentElement = parentElement;
 	}
 
 	@Override
@@ -377,7 +383,7 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 				.toString();
 	}
 
-	protected final void init() {
+	protected void init() {
 		getContext().logMessage( Diagnostic.Kind.OTHER, "Initializing type '" + getQualifiedName() + "'" );
 
 		setupSession();
