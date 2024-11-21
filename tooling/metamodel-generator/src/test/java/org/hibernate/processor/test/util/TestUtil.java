@@ -335,6 +335,9 @@ public class TestUtil {
 	}
 
 	public static File getMetaModelSourceFileFor(Class<?> clazz, boolean prefix) {
+		if ( clazz.isMemberClass() ) {
+			return getMetaModelSourceFileFor( clazz.getEnclosingClass(), prefix );
+		}
 		String metaModelClassName = getMetaModelClassName(clazz, prefix);
 		// generate the file name
 		String fileName = metaModelClassName.replace( PACKAGE_SEPARATOR, PATH_SEPARATOR );
@@ -352,14 +355,16 @@ public class TestUtil {
 
 	private static String getMetaModelClassName(Class<?> clazz, boolean prefix) {
 		final String packageName = clazz.getPackageName();
-		return prefix ? packageName + '.' + META_MODEL_CLASS_POSTFIX + clazz.getSimpleName()
-				: packageName + clazz.getName().substring( packageName.length() ).replace( '$', '_' ) + META_MODEL_CLASS_POSTFIX;
+		return prefix ? packageName + '.' + META_MODEL_CLASS_POSTFIX + clazz.getName().substring( packageName.length() + 1 )
+				.replaceAll( "\\$", "\\$_" )
+				: packageName + clazz.getName().substring( packageName.length() )
+						.replaceAll( "\\$", "_\\$" ) + META_MODEL_CLASS_POSTFIX;
 	}
 
 	private static String getMetaModelClassName(String className) {
 		final int index = className.lastIndexOf( '.' );
 		final String packageName = className.substring( 0, index + 1 );
-		return packageName + className.substring( packageName.length() ).replace( '$', '_' ) + META_MODEL_CLASS_POSTFIX;
+		return packageName + className.substring( packageName.length() ).replaceAll( "\\$", "_\\$" ) + META_MODEL_CLASS_POSTFIX;
 	}
 
 	public static String getMetaModelSourceAsString(Class<?> clazz) {
