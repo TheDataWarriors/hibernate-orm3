@@ -80,11 +80,12 @@ import static org.hibernate.processor.annotation.QueryMethod.isOrderParam;
 import static org.hibernate.processor.annotation.QueryMethod.isPageParam;
 import static org.hibernate.processor.util.Constants.*;
 import static org.hibernate.processor.util.NullnessUtil.castNonNull;
+import static org.hibernate.processor.util.StringUtil.removeDollar;
 import static org.hibernate.processor.util.TypeUtils.containsAnnotation;
 import static org.hibernate.processor.util.TypeUtils.determineAccessTypeForHierarchy;
 import static org.hibernate.processor.util.TypeUtils.determineAnnotationSpecifiedAccessType;
 import static org.hibernate.processor.util.TypeUtils.extendsClass;
-import static org.hibernate.processor.util.TypeUtils.findMappedSuperClass;
+import static org.hibernate.processor.util.TypeUtils.findMappedSuperElement;
 import static org.hibernate.processor.util.TypeUtils.getAnnotationMirror;
 import static org.hibernate.processor.util.TypeUtils.getAnnotationValue;
 import static org.hibernate.processor.util.TypeUtils.hasAnnotation;
@@ -232,18 +233,6 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 		return getSimpleName() + '_';
 	}
 
-	/**
-	 * If this is an "intermediate" class providing {@code @Query}
-	 * annotations for the query by magical method name crap, then
-	 * by convention it will be named with a trailing $ sign. Strip
-	 * that off, so we get the standard constructor.
-	 */
-	public static String removeDollar(String simpleName) {
-		return simpleName.endsWith("$")
-				? simpleName.substring(0, simpleName.length()-1)
-				: simpleName;
-	}
-
 	@Override
 	public final String getQualifiedName() {
 		if ( qualifiedName == null ) {
@@ -253,8 +242,8 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 	}
 
 	@Override
-	public @Nullable String getSupertypeName() {
-		return repository ? null : findMappedSuperClass( this, context );
+	public @Nullable Element getSuperTypeElement() {
+		return repository ? null : findMappedSuperElement( this, context );
 	}
 
 	@Override
@@ -278,12 +267,7 @@ public class AnnotationMetaEntity extends AnnotationMeta {
 	}
 
 	public void addInnerClass(AnnotationMetaEntity metaEntity) {
-		putMember( "INNER_"+ metaEntity.getQualifiedName(), new InnerClassMetaAttribute( metaEntity ) );
-	}
-
-	@Override
-	public boolean hasParent() {
-		return parentElement != null;
+		putMember( "INNER_" + metaEntity.getQualifiedName(), new InnerClassMetaAttribute( metaEntity ) );
 	}
 
 	public void setParentElement(TypeElement parentElement) {

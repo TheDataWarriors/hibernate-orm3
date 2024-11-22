@@ -119,4 +119,16 @@ public final class StringUtil {
 			&& isUpperCase( string.charAt( 0 ) )
 			&& isUpperCase( string.charAt( 1 ) );
 	}
+
+	/**
+	 * If this is an "intermediate" class providing {@code @Query}
+	 * annotations for the query by magical method name crap, then
+	 * by convention it will be named with a trailing $ sign. Strip
+	 * that off, so we get the standard constructor.
+	 */
+	public static String removeDollar(String simpleName) {
+		return simpleName.endsWith("$")
+				? simpleName.substring(0, simpleName.length()-1)
+				: simpleName;
+	}
 }

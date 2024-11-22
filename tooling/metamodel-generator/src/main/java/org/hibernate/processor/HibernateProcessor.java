@@ -84,6 +84,7 @@ import static org.hibernate.processor.util.TypeUtils.getAnnotationMirror;
 import static org.hibernate.processor.util.TypeUtils.getAnnotationValue;
 import static org.hibernate.processor.util.TypeUtils.hasAnnotation;
 import static org.hibernate.processor.util.TypeUtils.isClassOrRecordType;
+import static org.hibernate.processor.util.TypeUtils.isMemberType;
 
 /**
  * Main annotation processor.
@@ -371,6 +372,7 @@ public class HibernateProcessor extends AbstractProcessor {
 					|| hasPackageAnnotation( element, Constants.EXCLUDE )
 					|| element.getModifiers().contains( Modifier.PRIVATE ) ) {
 				// skip it completely
+				return;
 			}
 			else if ( isEntityOrEmbeddable( element ) && !element.getModifiers().contains( Modifier.PRIVATE )) {
 				context.logMessage( Diagnostic.Kind.OTHER, "Processing annotated entity class '" + element + "'" );
@@ -414,14 +416,26 @@ public class HibernateProcessor extends AbstractProcessor {
 								parentMeta = parentMetaEntity;
 							}
 						}
-						if (element.getSimpleName().toString().equals( "OffsetDateTimeTest" )) {
-							System.err.println("Create OffsetDateTimeTest as non-entity class#1");
-						}
 						final NonManagedMetamodel  metaEntity =
 								NonManagedMetamodel .create(
 										typeElement, context,
-										parentMeta );
+										false, parentMeta );
 						context.addMetaEntity( metaEntity.getQualifiedName(), metaEntity );
+						if ( context.generateJakartaDataStaticMetamodel()) {
+							AnnotationMetaEntity parentDataMeta = null;
+							if ( parent instanceof TypeElement parentElement ) {
+								final String key = parentElement.getQualifiedName().toString();
+								if ( context.getDataMetaEntity( key ) instanceof AnnotationMetaEntity parentMetaEntity ) {
+									parentDataMeta = parentMetaEntity;
+								}
+							}
+							final NonManagedMetamodel  dataMetaEntity =
+									NonManagedMetamodel .create(
+											typeElement, context,
+											true, parentDataMeta );
+							context.addDataMetaEntity( dataMetaEntity.getQualifiedName(), dataMetaEntity );
+						}
+
 					}
 				}
 			}
@@ -461,16 +475,7 @@ public class HibernateProcessor extends AbstractProcessor {
 		}
 
 		for ( Metamodel entity : context.getMetaEntities() ) {
-			if ( !context.isAlreadyGenerated(entity) && !entity.hasParent()) {
-				context.logMessage( Diagnostic.Kind.OTHER,
-						"Writing Jakarta Persistence metamodel for entity '" + entity + "'" );
-				ClassWriter.writeFile( entity, context );
-				context.markGenerated(entity);
-			}
-		}
-
-		for ( Metamodel entity : context.getMetaEntities() ) {
-			if ( !context.isAlreadyGenerated(entity) && !entity.hasParent()) {
+			if ( !context.isAlreadyGenerated( entity ) && !isMemberType( entity.getElement() ) ) {
 				context.logMessage( Diagnostic.Kind.OTHER,
 						"Writing Jakarta Persistence metamodel for entity '" + entity + "'" );
 				ClassWriter.writeFile( entity, context );
@@ -479,7 +484,7 @@ public class HibernateProcessor extends AbstractProcessor {
 		}
 
 		for ( Metamodel entity : context.getDataMetaEntities() ) {
-			if ( !context.isAlreadyGenerated(entity) ) {
+			if ( !context.isAlreadyGenerated( entity ) && !isMemberType( entity.getElement() ) ) {
 				context.logMessage( Diagnostic.Kind.OTHER,
 						"Writing Jakarta Data metamodel for entity '" + entity + "'" );
 				ClassWriter.writeFile( entity, context );
@@ -502,7 +507,7 @@ public class HibernateProcessor extends AbstractProcessor {
 			final int toProcessCountBeforeLoop = models.size();
 			for ( Metamodel metamodel : models ) {
 				// see METAGEN-36
-				if ( context.isAlreadyGenerated(metamodel) || metamodel.hasParent()) {
+				if ( context.isAlreadyGenerated(metamodel) ) {
 					processed.add( metamodel );
 				}
 				else if ( !modelGenerationNeedsToBeDeferred(models, metamodel ) ) {
@@ -626,9 +631,6 @@ public class HibernateProcessor extends AbstractProcessor {
 					}
 					final boolean requiresLazyMemberInitialization
 							= hasAnnotation( element, EMBEDDABLE, MAPPED_SUPERCLASS );
-					if (element.getSimpleName().toString().equals( "OffsetDateTimeTest" )) {
-						System.err.println("Create OffsetDateTimeTest in handleRootElementAnnotationMirrors#2");
-					}
 					final AnnotationMetaEntity metaEntity =
 							AnnotationMetaEntity.create( typeElement, context,
 									requiresLazyMemberInitialization,
@@ -646,13 +648,17 @@ public class HibernateProcessor extends AbstractProcessor {
 							// let a handwritten metamodel "override" the generated one
 							// (this is used in the Jakarta Data TCK)
 							&& !hasHandwrittenMetamodel(element) ) {
-						if (element.getSimpleName().toString().equals( "OffsetDateTimeTest" )) {
-							System.err.println("Create OffsetDateTimeTest in handleRootElementAnnotationMirrors#3");
+						AnnotationMetaEntity parentDataEntity = null;
+						if ( parent instanceof TypeElement parentTypeElement ) {
+							if ( context.getDataMetaEntity( parentTypeElement.getQualifiedName().toString() )
+									instanceof AnnotationMetaEntity pme ) {
+								parentDataEntity = pme;
+							}
 						}
 						final AnnotationMetaEntity dataMetaEntity =
 								AnnotationMetaEntity.create( typeElement, context,
 										requiresLazyMemberInitialization,
-										true, true, parentMetaEntity );
+										true, true, parentDataEntity );
 //						final Metamodel alreadyExistingDataMetaEntity =
 //								tryGettingExistingDataEntityFromContext( mirror, '_' + qualifiedName );
 //						if ( alreadyExistingDataMetaEntity != null ) {

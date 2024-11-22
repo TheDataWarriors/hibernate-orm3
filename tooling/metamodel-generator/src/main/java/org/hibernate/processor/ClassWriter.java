@@ -4,15 +4,16 @@
  */
 package org.hibernate.processor;
 
-import jakarta.annotation.Nullable;
-import org.hibernate.processor.annotation.AnnotationMetaEntity;
 import org.hibernate.processor.annotation.InnerClassMetaAttribute;
 import org.hibernate.processor.model.MetaAttribute;
 import org.hibernate.processor.model.Metamodel;
+import org.hibernate.processor.util.StringUtil;
 
 import javax.annotation.processing.FilerException;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 import javax.tools.FileObject;
@@ -27,6 +28,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static org.hibernate.processor.util.TypeUtils.isMemberType;
 
 /**
  * Helper class to write the actual metamodel class using the  {@link javax.annotation.processing.Filer} API.
@@ -40,7 +42,6 @@ public final class ClassWriter {
 	}
 
 	public static void writeFile(Metamodel entity, Context context) {
-		if (entity.hasParent()) throw new IllegalStateException();
 		try {
 			String metaModelPackage = entity.getPackageName();
 			// need to generate the body first, since this will also update
@@ -105,7 +106,7 @@ public final class ClassWriter {
 			}
 			entity.inheritedAnnotations().forEach(pw::println);
 
-			printClassDeclaration( entity, pw, context );
+			printClassDeclaration( entity, pw );
 
 			pw.println();
 
@@ -115,6 +116,7 @@ public final class ClassWriter {
 					generateBody( innerClass.getMetaEntity(), context )
 							.toString().lines()
 							.forEach(line -> pw.println('\t' + line));
+					context.markGenerated( innerClass.getMetaEntity() );
 				}
 			}
 
@@ -149,12 +151,13 @@ public final class ClassWriter {
 		}
 	}
 
-	private static void printClassDeclaration(Metamodel entity, PrintWriter pw, Context context) {
-		if ( entity.hasParent() ) {
+	private static void printClassDeclaration(Metamodel entity, PrintWriter pw) {
+		if ( isMemberType( entity.getElement() ) ) {
 			final Set<Modifier> modifiers = entity.getElement().getModifiers();
-			if (modifiers.contains( Modifier.PUBLIC )){
+			if ( modifiers.contains( Modifier.PUBLIC ) ) {
 				pw.print( "public " );
-			}else if (modifiers.contains( Modifier.PROTECTED )) {
+			}
+			else if ( modifiers.contains( Modifier.PROTECTED ) ) {
 				pw.print( "protected " );
 			}
 			pw.print( "static " );
@@ -168,25 +171,14 @@ public final class ClassWriter {
 		pw.print( entity.isJakartaDataStyle() ? "interface " : "class " );
 		pw.print( getGeneratedClassName(entity) );
 
-		String superClassName = entity.getSupertypeName();
-		if ( superClassName != null ) {
-			Metamodel superClassEntity = context.getMetaEntity( superClassName );
-			if (superClassEntity == null) {
-				superClassEntity = context.getMetaEmbeddable( superClassName );
-			}
-			final String superclassName = getGeneratedSuperclassName(
-					superClassName, superClassEntity, entity.isJakartaDataStyle() );
-			if (entity.getSimpleName().equals( "OffsetDateTimeTest" )) {
-				System.err.printf( "Extends (?) %s - superClassName is not null%n", superClassName );
-			}
-			pw.print( " extends " + entity.importType(superclassName) );
+		final Element superTypeElement = entity.getSuperTypeElement();
+		if ( superTypeElement != null ) {
+			pw.print( " extends " +
+					entity.importType(getGeneratedSuperclassName( superTypeElement, entity.isJakartaDataStyle() )) );
 		}
 		if ( entity.isImplementation() ) {
 			pw.print( entity.getElement().getKind() == ElementKind.CLASS ? " extends " : " implements " );
 			pw.print( entity.getSimpleName() );
-			if (entity.getSimpleName().equals( "OffsetDateTimeTest" )) {
-				System.err.printf( "Extends (?) %s -- implementation (?!?)%n", entity.getSimpleName() );
-			}
 		}
 
 		pw.println( " {" );
@@ -194,44 +186,34 @@ public final class ClassWriter {
 
 	private static String getFullyQualifiedClassName(Metamodel entity) {
 		final String metaModelPackage = entity.getPackageName();
-		String fullyQualifiedClassName = "";
-		if ( !metaModelPackage.isEmpty() ) {
-			fullyQualifiedClassName = fullyQualifiedClassName + metaModelPackage + ".";
-		}
+		final String packageNamePrefix = !metaModelPackage.isEmpty() ? metaModelPackage + "." : "";
 		final String className;
 		if ( entity.getElement().getKind() == ElementKind.PACKAGE ) {
 			className = getGeneratedClassName( entity );
 		}
 		else {
 			className = Arrays.stream(
-							entity.getQualifiedName().substring( fullyQualifiedClassName.length() ).split( "\\." ) )
-					.map( AnnotationMetaEntity::removeDollar )
+							entity.getQualifiedName().substring( packageNamePrefix.length() ).split( "\\." ) )
+					.map( StringUtil::removeDollar )
 					.map( part -> entity.isJakartaDataStyle() ? '_' + part : part + '_' )
 					.collect( Collectors.joining( "." ) );
 		}
-		return fullyQualifiedClassName + className;
+		return packageNamePrefix + className;
 	}
 
 	private static String getGeneratedClassName(Metamodel entity) {
 		final String className = entity.getSimpleName();
-		return entity.isJakartaDataStyle() ? '_' + className : className + '_';	// TODO : check inner class!!!
+		return entity.isJakartaDataStyle() ? '_' + className : className + '_';
 	}
 
-	private static String getGeneratedSuperclassName(String superClassName, @Nullable Metamodel superClassEntity, boolean jakartaDataStyle) {
-		if ( jakartaDataStyle ) {
-			int lastDot = superClassName.lastIndexOf('.');
-			if ( lastDot<0 ) {
-				return '_' + superClassName;
-			}
-			else {
-				return superClassName.substring(0,lastDot+1)
-						+ '_' + superClassName.substring(lastDot+1);
-			}
-		}
-		else {
-			return superClassEntity == null ? superClassName + '_'
-					: getFullyQualifiedClassName( superClassEntity );
-		}
+	private static String getGeneratedSuperclassName(Element superClassElement, boolean jakartaDataStyle) {
+		final TypeElement typeElement = (TypeElement) superClassElement;
+		final String simpleName = typeElement.getSimpleName().toString();
+		final Element enclosingElement = typeElement.getEnclosingElement();
+		return (enclosingElement instanceof TypeElement
+				? getGeneratedSuperclassName( enclosingElement, jakartaDataStyle )
+				: ((PackageElement) enclosingElement).getQualifiedName().toString())
+				+ "." + (jakartaDataStyle ? '_' + simpleName : simpleName + '_');
 	}
 
 	private static String writeGeneratedAnnotation(Metamodel entity, Context context) {
