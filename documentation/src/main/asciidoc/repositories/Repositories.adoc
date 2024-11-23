@@ -16,6 +16,7 @@ public class Book {
     @Basic(optional = false)
     String title;
 
+    @Basic(optional = false)
     LocalDate publicationDate;
 
     @Basic(optional = false)
@@ -113,7 +114,7 @@ This really isn't as bad as it sounds; overuse of lazy fetching is associated wi
 A future release of Jakarta Data will feature repositories backed by Jakarta Persistence stateful persistence contexts, but this functionality did not make the cut for Jakarta Data 1.0.
 ====
 
-The second big difference is that instead of providing a generic interface like `EntityManager` that's capable of performing persistence operations for any entity class, Jakarta Data requires that each interaction with the database go via a user-written method specific to just one entity type. The method is marked with annotations allowing Hibernate to fill in the method implementation.
+The second big difference is that instead of providing a generic interface like `EntityManager` that's capable of performing persistence operations for any entity class, Jakarta Data requires that each interaction with the database goes via a user-written method specific to just one entity type. The method is marked with annotations allowing Hibernate to fill in the method implementation.
 
 For example, whereas Jakarta Persistence defines the methods `find()` and `persist()` of `EntityManager`, in Jakarta Data the application programmer is required to write an interface like the following:
 
@@ -168,7 +169,7 @@ The--perhaps surprising--answer is: it's completely up to you.
 === Organizing persistence operations
 
 Jakarta Data lets you freely assign persistence operations to repositories according to your own preference.
-In particular, Jakarta Data does not require that a repository interface inherit a built-in supertype declaring the basic "CRUD" operations, and so it's not necessary to have a separate repository interface for each entity.
+In particular, Jakarta Data does not require that a repository interface inherits a built-in supertype declaring the basic "CRUD" operations, and so it's not necessary to have a separate repository interface for each entity.
 You're permitted, for example, to have a single `Library` interface instead of `BookRepository`, `AuthorRepository`, and `PublisherRepository`.
 
 Thus, the whole programming model is much more flexible than older approaches such as Spring Data, which require a repository interface per entity class, or, at least, per so-called "aggregate".
@@ -325,7 +326,7 @@ void add(Book... books);
 [NOTE]
 ====
 A future release of Jakarta Data might expand the list of built-in lifecycle annotations.
-In particular, we're hoping to add `@Persist`, `@Merge`, `@Refresh`, `@Lock`, and `@Remove`, mapping to the fundamental operations of `EntityManager`.
+In particular, we're hoping to add `@Persist`, `@Merge`, `@Refresh`, `@Lock`, and `@Remove` mapping to the fundamental operations of `EntityManager`.
 ====
 
 Repositories wouldn't be useful at all if this was all they could do.
@@ -352,7 +353,7 @@ This is our first glimpse of the advantages of using Jakarta Data repositories w
 ====
 
 If there is no `Book` with the given `isbn` in the database, the method throws `EmptyResultException`.
-There's two ways around this if that's not what we want:
+There are two ways around this if that's not what we want:
 
 - declare the method to return `Optional`, or
 - annotate the method `@jakarta.annotation.Nullable`.
@@ -399,7 +400,7 @@ Furthermore, if the parameter type is a list or array of the entity field type, 
 List<Book> books(String[] ibsn);
 ----
 
-Or course, an automatic query method might have multiple parameters.
+Of course, an automatic query method might have multiple parameters.
 
 [source,java]
 ----
@@ -462,7 +463,7 @@ List<Book> booksByTitle(String pattern);
 You might notice that:
 
 - The `from` clause is not required in JDQL, and is inferred from the return type of the repository method.
-- Since Jakarta Persistence 3.2, neither the `select` cause nor entity aliases (identification variables) are required in JPQL, finally standardizing a very old feature of HQL.
+- Since Jakarta Persistence 3.2, neither the `select` clause nor entity aliases (identification variables) are required in JPQL, finally standardizing a very old feature of HQL.
 
 This allows simple queries to be written in a very compact form.
 
@@ -493,7 +494,7 @@ The JPQL specification provides the `select new` construct for this.
 
 [source,java]
 ----
-@Query("select new AuthorBookRecord(b.isbn, a.ssn, a.name, b.title " +
+@Query("select new AuthorBookRecord(b.isbn, a.ssn, a.name, b.title) " +
        "from Author a join books b " +
        "where title like :pattern")
 List<AuthorBookSummary> summariesForTitle(@Pattern String pattern);
@@ -509,7 +510,7 @@ Since this is quite verbose, Hibernate doesn't require the use of `select new`, 
 @Query("select isbn, ssn, name, title " +
        "from Author join books " +
        "where title like :pattern")
-List<AuthorBookSummary> summariesForTitle(@Pattern String pattern);
+List<AuthorBookSummary> summariesForTitle(String pattern);
 ----
 ====
 
