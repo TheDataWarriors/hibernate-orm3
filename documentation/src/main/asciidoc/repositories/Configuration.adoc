@@ -126,7 +126,7 @@ It's always possible to instantiate a repository implementation directly.
 
 [source,java]
 ----
-Library library = new Library(statelessSession);
+Library library = new Library_(statelessSession);
 ----
 
 This is useful for testing, or for executing in an environment with no support for `jakarta.inject`.
