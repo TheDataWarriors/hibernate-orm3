@@ -16,7 +16,6 @@ public class Book {
     @Basic(optional = false)
     String title;
 
-    @Basic(optional = false)
     LocalDate publicationDate;
 
     @Basic(optional = false)
@@ -169,7 +168,7 @@ The--perhaps surprising--answer is: it's completely up to you.
 === Organizing persistence operations
 
 Jakarta Data lets you freely assign persistence operations to repositories according to your own preference.
-In particular, Jakarta Data does not require that a repository interface inherits a built-in supertype declaring the basic "CRUD" operations, and so it's not necessary to have a separate repository interface for each entity.
+In particular, Jakarta Data does not require that a repository interface inherit a built-in supertype declaring the basic "CRUD" operations, and so it's not necessary to have a separate repository interface for each entity.
 You're permitted, for example, to have a single `Library` interface instead of `BookRepository`, `AuthorRepository`, and `PublisherRepository`.
 
 Thus, the whole programming model is much more flexible than older approaches such as Spring Data, which require a repository interface per entity class, or, at least, per so-called "aggregate".
@@ -326,7 +325,7 @@ void add(Book... books);
 [NOTE]
 ====
 A future release of Jakarta Data might expand the list of built-in lifecycle annotations.
-In particular, we're hoping to add `@Persist`, `@Merge`, `@Refresh`, `@Lock`, and `@Remove` mapping to the fundamental operations of `EntityManager`.
+In particular, we're hoping to add `@Persist`, `@Merge`, `@Refresh`, `@Lock`, and `@Remove`, mapping to the fundamental operations of `EntityManager`.
 ====
 
 Repositories wouldn't be useful at all if this was all they could do.
