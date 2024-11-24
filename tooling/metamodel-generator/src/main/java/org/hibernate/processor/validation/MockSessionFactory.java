@@ -822,12 +822,7 @@ public abstract class MockSessionFactory
 
 		@Override
 		public @Nullable EntityDomainType<?> findEntityType(@Nullable String entityName) {
-			if ( isEntityDefined(entityName) ) {
-				return new MockEntityDomainType<>(entityName);
-			}
-			else {
-				return null;
-			}
+			return entity( entityName );
 		}
 
 		@Override
