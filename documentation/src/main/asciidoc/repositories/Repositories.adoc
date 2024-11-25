@@ -352,7 +352,7 @@ This is our first glimpse of the advantages of using Jakarta Data repositories w
 ====
 
 If there is no `Book` with the given `isbn` in the database, the method throws `EmptyResultException`.
-There's two ways around this if that's not what we want:
+There are two ways around this if that's not what we want:
 
 - declare the method to return `Optional`, or
 - annotate the method `@jakarta.annotation.Nullable`.
