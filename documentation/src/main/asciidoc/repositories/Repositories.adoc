@@ -113,7 +113,7 @@ This really isn't as bad as it sounds; overuse of lazy fetching is associated wi
 A future release of Jakarta Data will feature repositories backed by Jakarta Persistence stateful persistence contexts, but this functionality did not make the cut for Jakarta Data 1.0.
 ====
 
-The second big difference is that instead of providing a generic interface like `EntityManager` that's capable of performing persistence operations for any entity class, Jakarta Data requires that each interaction with the database goes via a user-written method specific to just one entity type. The method is marked with annotations allowing Hibernate to fill in the method implementation.
+The second big difference is that instead of providing a generic interface like `EntityManager` that's capable of performing persistence operations for any entity class, Jakarta Data requires that each interaction with the database go via a user-written method specific to just one entity type. The method is marked with annotations allowing Hibernate to fill in the method implementation.
 
 For example, whereas Jakarta Persistence defines the methods `find()` and `persist()` of `EntityManager`, in Jakarta Data the application programmer is required to write an interface like the following:
 
@@ -352,7 +352,7 @@ This is our first glimpse of the advantages of using Jakarta Data repositories w
 ====
 
 If there is no `Book` with the given `isbn` in the database, the method throws `EmptyResultException`.
-There are two ways around this if that's not what we want:
+There's two ways around this if that's not what we want:
 
 - declare the method to return `Optional`, or
 - annotate the method `@jakarta.annotation.Nullable`.
