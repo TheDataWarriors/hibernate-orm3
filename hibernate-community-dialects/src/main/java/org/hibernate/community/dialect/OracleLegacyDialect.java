@@ -179,8 +179,8 @@ public class OracleLegacyDialect extends Dialect {
 		@Override
 		protected void applyAggregateColumnCheck(StringBuilder buf, AggregateColumn aggregateColumn) {
 			final JdbcType jdbcType = aggregateColumn.getType().getJdbcType();
-			if ( dialect.getVersion().isBefore( 23, 6 ) && jdbcType.isXml() ) {
-				// ORA-00600 when selecting XML columns that have a check constraint was fixed in 23.6
+			if ( dialect.getVersion().isBefore( 23, 7 ) && jdbcType.isXml() ) {
+				// ORA-00600 when selecting XML columns that have a check constraint was fixed in 23.7
 				return;
 			}
 			super.applyAggregateColumnCheck( buf, aggregateColumn );
