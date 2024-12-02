@@ -670,7 +670,7 @@ disable_userland_proxy() {
 
 oracle_atps() {
   echo "Managing Oracle Autonomous Database..."
-  export INFO=$(curl -s -k -L -X GET "https://api.testpilotdev-controller.oraclecloud.com/ords/atlas/admin/database?type=autonomous&hostname=`hostname`" -H 'accept: application/json')
+  export INFO=$(curl -s -k -L -X GET "https://api.testpilotdev-controller.oraclecloud.com/ords/testpilot/admin/database?type=autonomous&hostname=`hostname`" -H 'accept: application/json')
   export HOST=$(echo $INFO | jq -r '.database' | jq -r '.host')
   export SERVICE=$(echo $INFO | jq -r '.database' | jq -r '.service')
   export PASSWORD=$(echo $INFO | jq -r '.database' | jq -r '.password')
@@ -680,7 +680,7 @@ oracle_atps() {
 
 oracle_atps_tls() {
   echo "Managing Oracle Autonomous Database..."
-  export INFO=$(curl -s -k -L -X GET "https://api.atlas-controller.oraclecloud.com/ords/atlas/admin/database?type=autonomous&hostname=`hostname`" -H 'accept: application/json')
+  export INFO=$(curl -s -k -L -X GET "https://api.testpilotdev-controller.oraclecloud.com/ords/testpilot/admin/database?type=autonomous&hostname=`hostname`" -H 'accept: application/json')
   export HOST=$(echo $INFO | jq -r '.database' | jq -r '.host')
   export SERVICE=$(echo $INFO | jq -r '.database' | jq -r '.service')
   export PASSWORD=$(echo $INFO | jq -r '.database' | jq -r '.password')
@@ -690,7 +690,7 @@ oracle_atps_tls() {
 
 oracle_db19c() {
   echo "Managing Oracle Database 19c..."
-  export INFO=$(curl -s -k -L -X GET "https://api.atlas-controller.oraclecloud.com/ords/atlas/admin/database?type=db19c&hostname=`hostname`" -H 'accept: application/json')
+  export INFO=$(curl -s -k -L -X GET "https://api.testpilotdev-controller.oraclecloud.com/ords/testpilot/admin/database?type=db19c&hostname=`hostname`" -H 'accept: application/json')
   export HOST=$(echo $INFO | jq -r '.database' | jq -r '.host')
   export SERVICE=$(echo $INFO | jq -r '.database' | jq -r '.service')
   export PASSWORD=$(echo $INFO | jq -r '.database' | jq -r '.password')
@@ -705,7 +705,7 @@ EOF
 
 oracle_db21c() {
   echo "Managing Oracle Database 21c..."
-  export INFO=$(curl -s -k -L -X GET "https://api.atlas-controller.oraclecloud.com/ords/atlas/admin/database?type=db21c&hostname=`hostname`" -H 'accept: application/json')
+  export INFO=$(curl -s -k -L -X GET "https://api.testpilotdev-controller.oraclecloud.com/ords/testpilot/admin/database?type=db21c&hostname=`hostname`" -H 'accept: application/json')
   export HOST=$(echo $INFO | jq -r '.database' | jq -r '.host')
   export SERVICE=$(echo $INFO | jq -r '.database' | jq -r '.service')
   export PASSWORD=$(echo $INFO | jq -r '.database' | jq -r '.password')
@@ -719,7 +719,7 @@ EOF
 
 oracle_db23c() {
   echo "Managing Oracle Database 23c..."
-  export INFO=$(curl -s -k -L -X GET "https://api.atlas-controller.oraclecloud.com/ords/atlas/admin/database?type=db23c&hostname=`hostname`" -H 'accept: application/json')
+  export INFO=$(curl -s -k -L -X GET "https://api.testpilotdev-controller.oraclecloud.com/ords/testpilot/admin/database?type=db23c&hostname=`hostname`" -H 'accept: application/json')
   export HOST=$(echo $INFO | jq -r '.database' | jq -r '.host')
   export SERVICE=$(echo $INFO | jq -r '.database' | jq -r '.service')
   export PASSWORD=$(echo $INFO | jq -r '.database' | jq -r '.password')
