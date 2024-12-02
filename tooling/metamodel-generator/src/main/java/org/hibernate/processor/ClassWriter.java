@@ -229,4 +229,5 @@ public final class ClassWriter {
 				: "jakarta.persistence.metamodel.StaticMetamodel";
 		return "@" + entity.importType( annotation ) + "(" + entity.getSimpleName() + ".class)";
 	}
+
 }
